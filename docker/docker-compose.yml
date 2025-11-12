@@ -1,0 +1,71 @@
+services:
+  kafka:
+    image: apache/kafka:latest
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - 9092:9092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+  
+  jobmanager:
+    image: apache/flink:latest
+    hostname: jobmanager
+    container_name: jobmanager
+    ports:
+      - "8081:8081" # Flink Web UI
+    command: jobmanager 
+    environment:
+      FLINK_PROPERTIES: "jobmanager.rpc.address: jobmanager" 
+    volumes:
+      - "flink_jobmanager_data:/opt/flink/log"
+  taskmanager:
+    image: apache/flink:latest
+    hostname: taskmanager
+    container_name: taskmanager
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: "jobmanager.rpc.address: jobmanager"
+    depends_on:
+      - jobmanager
+    volumes:
+      - "flink_taskmanager_data:/opt/flink/log"
+  cassandra:
+    image: cassandra:latest
+    ports:
+      - "9042:9042"
+    volumes:
+      - "cassandra_data:/var/lib/cassandra"
+    environment:
+      - CASSANDRA_CLUSTER_NAME=MyCluster
+      - CASSANDRA_NUM_TOKENS=256
+      - CASSANDRA_DC=datacenter1
+      - CASSANDRA_RACK=rack1
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_START_RPC=true
+      - CASSANDRA_START_JMX=true
+      - CASSANDRA_START_NATIVE_TRANSPORT=true
+
+volumes:
+  cassandra_data:
+    driver: local
+  kafka_data:
+    driver: local
+  flink_jobmanager_data:
+    driver: local
+  flink_taskmanager_data:
+    driver: local
