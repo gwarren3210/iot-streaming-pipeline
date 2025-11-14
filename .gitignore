@@ -1,4 +1,5 @@
 .env
 flink-job/flink-sql-connector-kafka.jar
 NEXT_STEPS.md
-*.log.*
+*.log[.*]
+docker/cassandra/logs/*
