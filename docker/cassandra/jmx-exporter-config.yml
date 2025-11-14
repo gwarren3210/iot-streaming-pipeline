@@ -1,0 +1,4 @@
+---
+jmxUrl: service:jmx:rmi:///jndi/rmi://cassandra:7199/jmxrmi
+rules:
+  - pattern: ".*"

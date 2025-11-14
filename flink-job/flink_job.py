@@ -7,7 +7,7 @@ from pyflink.common.typeinfo import Types
 from pyflink.common import Time
 from pyflink.datastream.window import TumblingEventTimeWindows
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from cassandra.cluster import Cluster
 
 
@@ -29,8 +29,8 @@ def get_cassandra_session():
 def write_to_cassandra(record):
     """Write record to Cassandra and return it"""
     device_id, ts, avg = record
-    window_start = datetime.fromtimestamp(ts / 1000).isoformat()
-    window_end = window_start  # placeholder
+    window_start = datetime.fromtimestamp(ts / 1000)
+    window_end = window_start + timedelta(minutes=5)
     try:
         session = get_cassandra_session()
         if session:

@@ -56,7 +56,7 @@ IoT Devices → Kafka → Flink → Cassandra → (optional) Grafana Dashboard
 * [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv?tab=readme-ov-file) 
 * Python 3.10+
 * Java 11+ (openjdk)
-* Optional: Grafana for visualization
+* [Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/installation/) for visualization  [[docker](https://grafana.com/docs/grafana/latest/setup-grafana/installation/docker/)]
 
 ### 1. Clone the Repo
 
@@ -65,11 +65,21 @@ git clone https://github.com/gwarren3210/iot-streaming-pipeline.git
 cd iot-streaming-pipeline
 ```
 
+### 1.5 Setup env variables
+
+./docker/.env
+```bash
+# .env
+GRAFANA_USER=admin
+GRAFANA_PASSWORD=supersecret123
+```
+
 ### 2. Start the Streaming Stack
 
-Spin up Kafka, Flink, and Cassandra.
+Spin up Kafka, Flink, Cassandra, and Grafana.
 
 ```bash
+cd docker
 docker compose up -d
 ```
 
@@ -87,6 +97,7 @@ Initialize the keyspace and table that the Flink job writes to. Choose one of th
   ```bash
   bash docker/setup_cassandra.sh
   ```
+  > This script recreates the `iot_avg_temperature_windowed` table so that Grafana can read native `timestamp` columns. Re-run it whenever you need to reset the schema for dashboards.
 * **Manual setup via `cqlsh`:**
   ```bash
   docker compose exec cassandra cqlsh
@@ -139,7 +150,7 @@ Flink consumes `iot_sensors`, computes windowed averages, and writes results to 
 Once producer and Flink job are running, verify that results land in Cassandra:
 
 ```bash
-docker compose exec cassandra cqlsh
+cd docker && docker compose exec cassandra cqlsh
 ```
 
 Connect to Cassandra and query results:
@@ -153,6 +164,20 @@ LIMIT 10;
 
 You should see windowed aggregates for each device. Exit `cqlsh` with `EXIT;`.
 
+### 7. Access Grafana Dashboard
+
+Once data is flowing into Cassandra, access the Grafana dashboard:
+
+1. **Open Grafana:** Navigate to `http://localhost:3000` in your browser
+2. **Login:** Use the credentials from your `.env` file (default: `admin`/`admin`)
+3. **View Dashboard:** The "IoT Sensor Dashboard" should be automatically available
+4. **Configure Datasource (if needed):** The Cassandra datasource should be pre-configured, but you can verify it in `Configuration > Data Sources`
+
+The dashboard displays:
+- **Average Temperature by Device:** Time series graph showing temperature trends
+- **Recent Readings:** Table showing the latest windowed averages
+
+**Note:** Make sure you have data in Cassandra before expecting visualizations. Run the producer and Flink job first (steps 4-5). Grafana queries rely on timestamp columns, so if you created the table manually ensure `window_start`/`window_end` are of type `TIMESTAMP`.
 
 ---
 
@@ -186,7 +211,7 @@ Example processed record (Flink output):
 
 * [ ] Add **Kafka Connect** → auto-ingest into Cassandra or Elasticsearch
 * [ ] Add **Spark Structured Streaming** for batch analytics
-* [ ] Add **Grafana dashboard** for live monitoring
+* [x] Add **Grafana dashboard** for live monitoring
 * [ ] Introduce **Schema Registry** for Avro/JSON consistency
 * [ ] Add **Anomaly detection model** via Flink ML
 
@@ -214,3 +239,11 @@ Apache 2.0 License © 2025 Gavriel Warren
 ![Architecture Diagram](docs/architecture.png)
 
 Lucidchart version available in `/docs/architecture.lucid`.
+
+```
+   cd docker
+   docker compose down cassandra
+   docker compose up -d cassandra
+   # Wait for Cassandra to be healthy
+   docker compose restart cassandra-jmx-exporter
+```
