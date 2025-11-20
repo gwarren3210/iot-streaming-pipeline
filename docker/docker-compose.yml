@@ -107,37 +107,9 @@ services:
     depends_on:
       cassandra:
         condition: service_healthy
-      loki:
-        condition: service_started
-  loki:
-      image: grafana/loki:2.9.2
-      platform: linux/arm64
-      container_name: loki
-      ports:
-        - "3100:3100"
-      command: -config.file=/etc/loki/config.yml
-      volumes:
-        - ./loki/config.yml:/etc/loki/config.yml
-        - loki_data:/loki
-      restart: unless-stopped
-
-  promtail:
-    image: grafana/promtail:2.9.2
-    container_name: promtail
-    volumes:
-      - /var/log:/var/log
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./promtail/config.yml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
-    environment:
-      LOKI_URL: http://loki:3100/loki/api/v1/push
-    depends_on:
-      - loki
-    restart: unless-stopped
 
 volumes:
   grafana_storage: {}
-  loki_data: {}
   cassandra_data:
     driver: local
   kafka_data:

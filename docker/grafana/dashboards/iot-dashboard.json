@@ -1,38 +1,85 @@
 {
-  "title": "IoT Sensor Dashboard",
-  "tags": ["iot", "sensors"],
-  "timezone": "browser",
-  "schemaVersion": 38,
-  "version": 1,
-  "refresh": "10s",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 6,
+  "links": [],
   "panels": [
     {
-      "id": 1,
-      "title": "Average Temperature by Device",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "rawQuery": true,
-          "query": "SELECT window_start AS time, avg_temp AS value FROM iot_data.iot_avg_temperature_windowed WHERE device_id = 'device-1' AND window_start >= '$__timeFrom' AND window_start <= '$__timeTo' ALLOW FILTERING",
-          "format": "time_series"
-        }
-      ],
       "datasource": {
         "type": "hadesarchitect-cassandra-datasource",
         "uid": "cassandra"
       },
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "celsius",
-          "mappings": []
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "celsius"
         },
         "overrides": [
           {
@@ -40,12 +87,7 @@
               "id": "byName",
               "options": "time"
             },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "time"
-              }
-            ]
+            "properties": []
           },
           {
             "matcher": {
@@ -61,69 +103,143 @@
           }
         ]
       },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
       "options": {
         "legend": {
+          "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "single"
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
         }
       },
-      "transformations": []
+      "pluginVersion": "12.4.0-19308673636",
+      "targets": [
+        {
+          "columnTime": "window_start",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "cassandra"
+          },
+          "datasourceId": 2,
+          "keyspace": "iot_data",
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "A",
+          "table": "iot_avg_temperature_windowed",
+          "target": "SELECT device_id, window_start, window_end, avg_temp\nFROM iot_avg_temperature_windowed;"
+        }
+      ],
+      "title": "Average Temperature by Device",
+      "type": "timeseries"
     },
     {
-      "id": 2,
-      "title": "Recent Readings",
-      "type": "table",
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "cassandra"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
         "y": 0
       },
+      "id": 2,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.4.0-19308673636",
       "targets": [
         {
-          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "cassandra"
+          },
+          "datasourceId": 2,
+          "queryType": "query",
           "rawQuery": true,
-          "query": "SELECT device_id, window_start, window_end, avg_temp FROM iot_data.iot_avg_temperature_windowed WHERE device_id = '$device' AND window_start >= '$__timeFrom' AND window_start <= '$__timeTo' ORDER BY window_start DESC LIMIT 50 ALLOW FILTERING",
-          "format": "table"
+          "refId": "A",
+          "target": "SELECT device_id, window_start, window_end, avg_temp\nFROM iot_avg_temperature_windowed;"
         }
       ],
-      "datasource": {
-        "type": "hadesarchitect-cassandra-datasource",
-        "uid": "cassandra"
-      }
+      "title": "Recent Readings",
+      "type": "gauge"
     }
   ],
+  "preload": false,
+  "refresh": "10s",
+  "schemaVersion": 42,
+  "tags": ["iot", "sensors"],
   "templating": {
     "list": [
       {
-        "name": "device",
-        "type": "query",
+        "current": {},
         "datasource": {
           "type": "hadesarchitect-cassandra-datasource",
           "uid": "cassandra"
         },
-        "rawQuery": true,
-        "query": "SELECT DISTINCT device_id FROM iot_data.iot_avg_temperature_windowed",
-        "target": "SELECT DISTINCT device_id FROM iot_data.iot_avg_temperature_windowed",
-        "current": {
-          "value": "device-1",
-          "text": "device-1"
-        },
         "includeAll": false,
-        "multi": false,
+        "name": "device",
+        "options": [],
+        "query": "SELECT DISTINCT device_id FROM iot_data.iot_avg_temperature_windowed",
         "refresh": 1,
         "regex": "",
-        "sort": 0,
-        "allValue": null
+        "type": "query"
       }
     ]
   },
   "time": {
-    "from": "now-2d",
+    "from": "now-1d",
     "to": "now"
   },
-  "timepicker": {}
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "IoT Sensor Dashboard (local)",
+  "uid": "ad29g2t",
+  "version": 7
 }
