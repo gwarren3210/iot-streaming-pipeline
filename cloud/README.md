@@ -3,7 +3,7 @@ Docker
 
 ## 1 Image setup
 
-### a. Build and run locally (without Docker)
+### a. Build and run producer locally (without Docker)
 
 ```bash
 cd cloud
@@ -26,6 +26,13 @@ Sent: {'device_id': 'device-10', 'timestamp': '2025-11-17T15:35:48.012816', 'tem
 ```
 
 ## Confluent Cloud setup (kafka and flink)
+
+#### Create .env file
+
+Copy the example file and add your credentials:
+```bash
+cp .env.example .env
+```
 
 ```bash
 brew install confluentinc/tap/cli
@@ -53,7 +60,7 @@ you should see something like
 ```
 
 ```bash
-confluent kafka topic create devices --cluster lkc-000000
+confluent kafka topic create iot_sensor_data --cluster lkc-omx10j
 confluent api-key create --resource <your-cluster-id> --description "iot-producer"
 ```
 
@@ -65,14 +72,21 @@ should give you
 +------------+------------------------------------------------------------------+
 ```
 
+Also create a schema regitry key
+```bash
+confluent schema-registry cluster describe
+confluent api-key create --resource lsrc-89xo85
+```
+
+confluent api-key create --resource lsrc-89xo85
+It may take a couple of minutes for the API key to be ready.
+Save the API key and secret. The secret is not retrievable later.
++------------+------------------------------------------------------------------+
+| API Key    | TQDNR4434RN52O72                                                 |
+| API Secret | cfltlw+/cNhSDTij8/s+6ONcUtdLWBJgH2I2hc6YZogDsw6Lp7JcyXn651o4mg+Q |
+
 ### 4. Update .env file with your credentials
 
-#### Create .env file
-
-Copy the example file and add your credentials:
-```bash
-cp .env.example .env
-```
 
 After creating your API key, update the `cloud/.env` file with your credentials:
 ```
@@ -87,90 +101,6 @@ Then rebuild the Docker image:
 docker build -f cloud/DOCKERFILE -t iot-producer:latest cloud/
 ```
 
-
-
-
-```bash
-brew install --cask gcloud-cli
-export PATH=/opt/homebrew/share/google-cloud-sdk/bin:"$PATH"
-```
-
-To use gcloud-cli, you may need to add the /opt/homebrew/share/google-cloud-sdk/bin directory
-to your PATH environment variable, e.g. (for Bash shell):
-
-continue the setup with
-```bash
-gcloud init
-```
-create a new cloud project, I named it iot_producer
-
-
-## 2. Flink Consumer Setup
-
-### a. Install Flink Dependencies
-
-The Flink job requires additional dependencies. Install them:
-
-```bash
-cd cloud
-pip install apache-flink>=1.20.0
-```
-
-### b. Download Kafka Connector JAR
-
-The Flink job needs the Kafka connector JAR. Download it:
-
-```bash
-cd ../flink-job
-./download_kafka_jar.sh
-```
-
-This will download `flink-sql-connector-kafka.jar` to the `flink-job` directory.
-
-### c. Update .env file (if needed)
-
-Add an optional consumer group ID to your `.env` file:
-
-```
-KAFKA_GROUP_ID=flink-iot-consumer
-```
-
-If not set, it defaults to `flink-iot-consumer`.
-
-### d. Run Flink Job
-
-From the `cloud` directory:
-
-```bash
-cd cloud
-python flink_job_cloud.py
-```
-
-The Flink job will:
-- Connect to Confluent Cloud Kafka using credentials from `.env`
-- Consume messages from the `devices` topic (or `KAFKA_TOPIC` if set)
-- Compute 5-minute windowed averages of temperature per device
-- Print results to console
-
-### e. Verify Data Flow
-
-1. **Start the producer** (in one terminal):
-   ```bash
-   cd cloud
-   python iot_producer_cloud.py
-   ```
-
-2. **Start the Flink consumer** (in another terminal):
-   ```bash
-   cd cloud
-   python flink_job_cloud.py
-   ```
-
-You should see:
-- Producer sending messages to Kafka
-- Flink consuming and processing messages
-- Windowed averages printed every 5 minutes
-
 ## 3. Confluent Cloud Flink (Managed Service) - **RECOMMENDED**
 
 Use Confluent Cloud's managed Flink service with **Flink SQL** - requires minimal local code!
@@ -178,27 +108,34 @@ Use Confluent Cloud's managed Flink service with **Flink SQL** - requires minima
 ### a. Set up Flink Compute Pool and Environment
 
 ```bash
+confluent flink region use --cloud aws --region us-east-2
 # Create a Flink compute pool (choose size based on your needs)
 confluent flink compute-pool create iot-flink-pool \
   --cloud aws \
   --region us-east-2 \
-  --max-cfu 1
-
-# Create a Flink environment
-confluent flink environment create iot-flink-env
 
 # List your resources to get IDs
 confluent flink compute-pool list
-confluent flink environment list
 ```
 
 You'll see output like:
 ```
-+-------------+------------------+
-| ID          | Name              |
-+-------------+------------------+
-| lfcp-xxxxx  | iot-flink-pool   |
-+-------------+------------------+
+
+  Current |     ID      |      Name      | Environment | Current CFU | Max CFU | Cloud |  Region   |   Status     
+----------+-------------+----------------+-------------+-------------+---------+-------+-----------+--------------
+          | lfcp-zxnn7d | iot-flink-pool | env-x56xqq  |           0 |       5 | AWS   | us-east-2 | PROVISIONED  
+```
+
+Add ID and Environemt to .env and shell shortcuts for ease of use
+```bash
+vars="$(
+  confluent flink compute-pool list \
+    | grep -v '^-' \
+    | grep -v 'ID' \
+    | awk '{print "FLINK_COMPUTE_POOL_ID="$2 "\nFLINK_COMPUTE_POOL_ENV="$6}'
+)"
+printf "%s\n" "$vars" >> .env && \
+eval "$(printf "export %s\n" "$vars")"
 ```
 
 ### b. Prepare Flink SQL File
@@ -210,7 +147,7 @@ cd cloud
 ./prepare_flink_sql.sh
 ```
 
-This script reads your `.env` file and creates `flink_job_prepared.sql` with your actual credentials.
+This script reads your `.env` file and prints the `confluent flink statement create` commands to the console.
 
 **Alternative: Edit manually**
 
@@ -221,18 +158,18 @@ If you prefer, you can edit `cloud/flink_job.sql` directly and replace:
 
 ### c. Submit Flink SQL Job
 
-```bash
-# First, prepare the SQL file with your credentials
-cd cloud
-./prepare_flink_sql.sh
+**Important:** Confluent Cloud Flink only accepts **one statement at a time**. You need to submit the CREATE TABLE statements first, then the INSERT statement.
 
-# Then submit the prepared SQL statement
-confluent flink statement create \
-  --compute-pool <your-compute-pool-id> \
-  --environment <your-environment-id> \
-  --statement-file cloud/flink_job_prepared.sql \
-  --name "iot-temperature-aggregation"
+**Option 1: Use the automated submission scripts (Recommended)**
+
+```bash
+cd cloud
+./prepare_flink_sql.sh   # Prepare the SQL with your credentials
+./create_flink_tables.sh # Creates the Source and Sink tables
+./submit_flink_insert.sh # Submits the INSERT statement
 ```
+
+**Note:** The `prepare_flink_sql.sh` script will print a ready-to-use command, but you'll need to extract individual statements if you want to submit them manually.
 
 ### d. Monitor Your Flink Job
 
@@ -268,3 +205,18 @@ confluent flink statement delete <statement-id> --environment <your-environment-
 For more details, see: https://docs.confluent.io/cloud/current/flink/index.html
 
 ## Confluent cloud setup
+
+
+```bash
+brew install --cask gcloud-cli
+export PATH=/opt/homebrew/share/google-cloud-sdk/bin:"$PATH"
+```
+
+To use gcloud-cli, you may need to add the /opt/homebrew/share/google-cloud-sdk/bin directory
+to your PATH environment variable, e.g. (for Bash shell):
+
+continue the setup with
+```bash
+gcloud init
+```
+create a new cloud project, I named it iot_producer

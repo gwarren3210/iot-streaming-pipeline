@@ -80,7 +80,7 @@ def main():
         )
     
     # Get topic from environment variable
-    topic = os.getenv("KAFKA_TOPIC", "devices")
+    topic = os.getenv("KAFKA_TOPIC", "iot_sensor_data")
     
     # Create Kafka source with Confluent Cloud configuration
     # Build the source with all required properties
