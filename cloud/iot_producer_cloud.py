@@ -58,9 +58,12 @@ def generate_iot_data(device_id: int):
     """Simulate a single IoT device reading."""
     # Use epoch milliseconds (BIGINT) for better Flink compatibility
     now = datetime.utcnow()
+    # Format timestamp as 'yyyy-MM-dd HH:mm:ss.SSS' for Flink SQL TO_TIMESTAMP() compatibility
+    # This format is required for Flink's TO_TIMESTAMP function to parse correctly
+    timestamp_str = now.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]  # Truncate to milliseconds
     return {
         "device_id": f"device-{device_id}",
-        "timestamp": now.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],  # Format: yyyy-MM-dd HH:mm:ss.SSS
+        "timestamp": timestamp_str,
         "temperature": round(random.uniform(15.0, 30.0), 2),
         "humidity": round(random.uniform(30.0, 80.0), 2),
         "status": random.choice(["OK", "WARN", "FAIL"]),

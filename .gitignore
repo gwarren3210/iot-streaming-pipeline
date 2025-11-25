@@ -4,3 +4,9 @@ cloud/flink_job_prepared.sql
 NEXT_STEPS.md
 *.log[.*]
 docker/cassandra/logs/*
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
