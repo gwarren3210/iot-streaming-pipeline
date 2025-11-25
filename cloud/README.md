@@ -520,4 +520,5 @@ create a new cloud project, I named it iot_producer
 ## Next Steps
 
 - Cloud deployment of the producer and consumer
+- Starlight configuration to link confluent to astra
 - Visualization of the data in a dashboard
