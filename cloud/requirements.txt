@@ -1,0 +1,4 @@
+confluent_kafka[avro,json_schema]
+python-dotenv
+apache-flink>=1.20.0
+cassandra-driver
