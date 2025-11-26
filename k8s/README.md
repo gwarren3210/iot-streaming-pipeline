@@ -9,6 +9,7 @@ This directory contains the Kubernetes manifests and source code to deploy the I
 3.  **Kafka Connect**: 
     - Reads `iot_sensor_data` -> Writes to Cassandra Table `iot_sensor_data` (raw data)
     - Reads `iot_windowed_data` -> Writes to Cassandra Table `iot_windowed_data` (aggregated data)
+4.  **Grafana**: Visualization and monitoring dashboard for pipeline metrics and data.
 
 ## Prerequisites
 
@@ -22,6 +23,7 @@ This directory contains the Kubernetes manifests and source code to deploy the I
 -   `flink/`: Flink SQL job (`job.sql`) and Dockerfile.
 -   `connect/`: Dockerfile and config for Kafka Connect.
 -   `*.yaml`: Kubernetes manifests.
+-   `prometheus-rbac.yaml`: RBAC permissions for Prometheus to scrape Kubernetes metrics.
 -   `build_and_push.sh`: Script to build Docker images.
 
 ## Deployment Instructions
@@ -115,6 +117,40 @@ This directory contains the Kubernetes manifests and source code to deploy the I
     ```
     Open [http://localhost:8081](http://localhost:8081) to monitor job status and metrics.
 
+9.  **Deploy Prometheus (Optional but Recommended)**
+    For metrics collection and visualization in Grafana:
+    ```bash
+    # First, create RBAC permissions for Prometheus to scrape Kubernetes metrics
+    kubectl apply -f prometheus-rbac.yaml
+    
+    # Then deploy Prometheus
+    kubectl apply -f prometheus.yaml -n iot-pipeline
+    ```
+    Wait for Prometheus to be ready:
+    ```bash
+    kubectl wait --for=condition=ready pod -l app=prometheus -n iot-pipeline --timeout=60s
+    ```
+    Access Prometheus UI:
+    ```bash
+    kubectl port-forward svc/prometheus 9090:9090 -n iot-pipeline
+    ```
+    Open [http://localhost:9090](http://localhost:9090) to query metrics directly.
+    
+    **Note**: Prometheus is configured to scrape:
+    - Container metrics via cAdvisor (CPU, memory, network, disk I/O)
+    - Kubernetes pod metrics (if pods have `prometheus.io/scrape=true` annotation)
+    - Self-monitoring metrics
+
+10. **Access Grafana Dashboard**
+    ```bash
+    kubectl port-forward svc/grafana 3000:3000 -n iot-pipeline
+    ```
+    Open [http://localhost:3000](http://localhost:3000) and login with:
+    - Username: `admin`
+    - Password: `admin`
+    
+    **Note**: Grafana is pre-configured with Prometheus as a datasource. Once Prometheus is deployed, you can immediately start creating dashboards.
+
 ## Verification
 
 After deployment, verify the pipeline is working:
@@ -167,6 +203,45 @@ If pods show `ImagePullBackOff` or `ErrImagePull`:
 3. Verify data exists in `iot_windowed_data` topic
 4. Check Kafka Connect connector is consuming from the topic
 5. Verify field mapping in `connect/sink-config.json` matches the data structure
+
+### Prometheus Not Collecting Data
+1. **Check Prometheus targets**:
+   ```bash
+   # Port-forward Prometheus
+   kubectl port-forward svc/prometheus 9090:9090 -n iot-pipeline
+   # Then visit http://localhost:9090/targets
+   ```
+
+2. **Verify Flink metrics are enabled**:
+   - Flink Prometheus reporter is configured but may not initialize properly in some versions
+   - Check Flink logs for metrics reporter initialization:
+     ```bash
+     JM_POD=$(kubectl get pods -n iot-pipeline -l component=jobmanager -o jsonpath='{.items[0].metadata.name}')
+     kubectl logs -n iot-pipeline $JM_POD | grep -i "metrics reporter\|prometheus"
+     ```
+
+3. **Check if metrics endpoint is accessible**:
+   ```bash
+   JM_POD=$(kubectl get pods -n iot-pipeline -l component=jobmanager -o jsonpath='{.items[0].metadata.name}')
+   kubectl exec -n iot-pipeline $JM_POD -- curl -s http://localhost:9249/metrics | head -20
+   ```
+
+4. **Reload Prometheus config** (if you updated it):
+   ```bash
+   PROMETHEUS_POD=$(kubectl get pods -n iot-pipeline -l app=prometheus -o jsonpath='{.items[0].metadata.name}')
+   # Restart Prometheus pod to reload config
+   kubectl delete pod -n iot-pipeline $PROMETHEUS_POD
+   ```
+
+5. **Check Prometheus logs**:
+   ```bash
+   kubectl logs -n iot-pipeline -l app=prometheus --tail=50
+   ```
+
+7. **Known Issue**: Flink 2.1 may have issues with Prometheus reporter initialization. If metrics don't appear:
+   - Check Flink Web UI at `http://localhost:8081` for job metrics
+   - Use Flink's REST API for metrics collection
+   - Consider using a Flink metrics exporter sidecar container
 
 ## Helpful Commands
 
@@ -281,6 +356,24 @@ kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT * FROM iot_data.
 kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT COUNT(*) FROM iot_data.iot_windowed_data;"
 ```
 
+### Prometheus Management
+```bash
+# Get Prometheus pod name
+PROMETHEUS_POD=$(kubectl get pods -n iot-pipeline -l app=prometheus -o jsonpath='{.items[0].metadata.name}')
+
+# View Prometheus logs
+kubectl logs -n iot-pipeline $PROMETHEUS_POD
+
+# Reload Prometheus configuration (if config changed)
+kubectl exec -n iot-pipeline $PROMETHEUS_POD -- wget --post-data="" http://localhost:9090/-/reload
+
+# Check Prometheus targets (what it's scraping)
+# Access Prometheus UI and go to Status > Targets
+
+# Query Prometheus via API
+kubectl exec -n iot-pipeline $PROMETHEUS_POD -- wget -qO- 'http://localhost:9090/api/v1/query?query=up'
+```
+
 ### Service Management
 ```bash
 # List all services
@@ -289,6 +382,8 @@ kubectl get svc -n iot-pipeline
 # Port forward to access services locally
 kubectl port-forward svc/flink-jobmanager 8081:8081 -n iot-pipeline
 kubectl port-forward svc/kafka-connect 8083:8083 -n iot-pipeline
+kubectl port-forward svc/prometheus 9090:9090 -n iot-pipeline
+kubectl port-forward svc/grafana 3000:3000 -n iot-pipeline
 
 # Get service endpoints
 kubectl get endpoints -n iot-pipeline
@@ -323,3 +418,170 @@ kubectl delete deployment <deployment-name> -n iot-pipeline
 # Delete namespace (removes everything)
 kubectl delete namespace iot-pipeline
 ```
+
+## Monitoring with Grafana
+
+Grafana is included in the deployment for visualization and monitoring. Here's how to set it up:
+
+### Basic Setup
+
+Grafana is deployed automatically when you run `kubectl apply -f .`. Access it via:
+
+```bash
+kubectl port-forward svc/grafana 3000:3000 -n iot-pipeline
+```
+
+Then open [http://localhost:3000](http://localhost:3000) and login with:
+- **Username**: `admin`
+- **Password**: `admin`
+
+### Adding Prometheus (Recommended)
+
+Prometheus is included in the deployment. To deploy it:
+
+```bash
+kubectl apply -f prometheus.yaml
+```
+
+**What Prometheus Scrapes:**
+- **cAdvisor Metrics**: ✅ Container-level metrics (CPU, memory, network, disk) for all pods via Kubernetes API
+- **Kubernetes Pods**: Any pod with `prometheus.io/scrape=true` annotation
+- **Self-monitoring**: Prometheus metrics
+- **Note**: Flink-specific metrics require the Prometheus reporter to be working (see troubleshooting). cAdvisor provides container-level metrics for all pods including Flink.
+
+**Configuration:**
+- Scrape interval: 15 seconds
+- Retention: 15 days
+- Storage: 5Gi persistent volume
+
+**Access Prometheus:**
+```bash
+kubectl port-forward svc/prometheus 9090:9090 -n iot-pipeline
+```
+Open [http://localhost:9090](http://localhost:9090) to query metrics using PromQL.
+
+**Grafana Integration:**
+Grafana is pre-configured to connect to Prometheus at `http://prometheus:9090`. Once both are running, you can immediately create dashboards.
+
+### Data Sources
+
+Grafana is pre-configured with:
+- **Prometheus**: For metrics from Flink, Kafka, and system metrics (default datasource)
+- **Cassandra**: For querying IoT sensor data directly from Cassandra
+
+**Using Cassandra Datasource:**
+
+The Cassandra datasource is automatically configured. To query your IoT data:
+
+1. **Create a new panel** in Grafana
+2. **Select "Cassandra"** as the datasource
+3. **Write CQL queries** to fetch data:
+
+**Example Queries:**
+
+```sql
+-- Get latest sensor readings
+SELECT device_id, timestamp, temperature, humidity, status 
+FROM iot_sensor_data 
+WHERE device_id = 'device-001' 
+ORDER BY timestamp DESC 
+LIMIT 100;
+
+-- Get aggregated windowed data
+SELECT device_id, window_start, window_end, avg_temp 
+FROM iot_windowed_data 
+WHERE device_id = 'device-001' 
+ORDER BY window_start DESC 
+LIMIT 50;
+
+-- Count records per device
+SELECT device_id, COUNT(*) as record_count 
+FROM iot_sensor_data 
+GROUP BY device_id;
+```
+
+**Note**: The Cassandra datasource uses the `hadesarchitect-cassandra-datasource` plugin. If you encounter connection issues, verify:
+- Cassandra pod is running: `kubectl get pods -n iot-pipeline -l app=cassandra`
+- Keyspace exists: `kubectl exec -n iot-pipeline <cassandra-pod> -- cqlsh -e "DESCRIBE KEYSPACE iot_data;"`
+
+### Creating Dashboards
+
+1. **Container Metrics Dashboard** (cAdvisor - Recommended):
+   - **CPU Usage**: `rate(container_cpu_usage_seconds_total{namespace="iot-pipeline"}[5m])`
+   - **Memory Usage**: `container_memory_usage_bytes{namespace="iot-pipeline"}`
+   - **Network I/O**: `rate(container_network_receive_bytes_total{namespace="iot-pipeline"}[5m])`
+   - **Disk I/O**: `rate(container_fs_reads_bytes_total{namespace="iot-pipeline"}[5m])`
+   - **Pod-specific metrics**: Filter by `pod="<pod-name>"` label
+
+2. **Pipeline Health Dashboard**:
+   - All pod CPU/memory usage
+   - Network traffic between components
+   - Container restart counts
+   - Resource limits vs usage
+
+3. **Flink Metrics Dashboard** (if Prometheus reporter works):
+   - Job throughput, latency, checkpoint duration
+   - Task manager metrics
+   - Kafka consumer/producer metrics
+
+4. **IoT Data Dashboard** (requires custom data source):
+   - Temperature/humidity trends over time
+   - Device status distribution
+   - Windowed aggregation trends
+   - Query Cassandra directly or use a custom exporter
+
+### Example Prometheus Queries (cAdvisor Metrics)
+
+**Pod CPU Usage** (all containers):
+```promql
+rate(container_cpu_usage_seconds_total{namespace="iot-pipeline"}[5m])
+```
+
+**Pod Memory Usage**:
+```promql
+container_memory_usage_bytes{namespace="iot-pipeline"}
+```
+
+**Pod Memory Usage by Container**:
+```promql
+container_memory_usage_bytes{namespace="iot-pipeline", container!="POD", container!=""}
+```
+
+**Network I/O**:
+```promql
+rate(container_network_receive_bytes_total{namespace="iot-pipeline"}[5m])
+rate(container_network_transmit_bytes_total{namespace="iot-pipeline"}[5m])
+```
+
+**Disk I/O**:
+```promql
+rate(container_fs_reads_bytes_total{namespace="iot-pipeline"}[5m])
+rate(container_fs_writes_bytes_total{namespace="iot-pipeline"}[5m])
+```
+
+**CPU Usage by Pod Name**:
+```promql
+sum(rate(container_cpu_usage_seconds_total{namespace="iot-pipeline"}[5m])) by (pod)
+```
+
+**Memory Usage by Pod Name**:
+```promql
+sum(container_memory_usage_bytes{namespace="iot-pipeline"}) by (pod)
+```
+
+**Flink-specific metrics** (if Prometheus reporter is working):
+```promql
+# These will only work if Flink Prometheus reporter initializes correctly
+rate(flink_taskmanager_job_task_operator_numRecordsInPerSecond[5m])
+flink_jobmanager_job_lastCheckpointDuration
+```
+
+### Alternative: Direct Cassandra Queries
+
+You can also create dashboards that query Cassandra directly using:
+- **Grafana Simple JSON Datasource**: Create a REST API endpoint that queries Cassandra
+- **Cassandra Datasource Plugin**: Install the Grafana Cassandra plugin
+
+### Persistence
+
+Grafana data (dashboards, users, etc.) is persisted in a PersistentVolumeClaim. If you delete the Grafana pod, your dashboards will be preserved.

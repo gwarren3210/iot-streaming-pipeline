@@ -23,11 +23,27 @@ spec:
         ports:
         - containerPort: 6122
           name: rpc
+        - containerPort: 9249
+          name: metrics
         livenessProbe:
-          tcpSocket:
-            port: 6122
-          initialDelaySeconds: 30
-          periodSeconds: 60
+          httpGet:
+            path: /metrics
+            port: 9249
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
         env:
         - name: FLINK_PROPERTIES
           value: "jobmanager.rpc.address: flink-jobmanager"
+        volumeMounts:
+        - name: flink-config
+          mountPath: /opt/flink/conf/flink-conf.yaml
+          subPath: flink-conf.yaml
+        - name: flink-config
+          mountPath: /opt/flink/conf/log4j-console.properties
+          subPath: log4j-console.properties
+      volumes:
+      - name: flink-config
+        configMap:
+          name: flink-config
