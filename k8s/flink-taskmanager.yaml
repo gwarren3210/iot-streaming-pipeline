@@ -4,7 +4,7 @@ metadata:
   name: flink-taskmanager
   namespace: iot-pipeline
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: flink
@@ -18,7 +18,7 @@ spec:
       containers:
       - name: taskmanager
         image: iot-flink-job:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["taskmanager"]
         ports:
         - containerPort: 6122

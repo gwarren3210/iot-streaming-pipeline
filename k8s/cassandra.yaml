@@ -45,9 +45,9 @@ spec:
         - name: CASSANDRA_ENDPOINT_SNITCH
           value: "GossipingPropertyFileSnitch"
         - name: MAX_HEAP_SIZE
-          value: "512M"
+          value: "256M"
         - name: HEAP_NEWSIZE
-          value: "128M"
+          value: "64M"
         resources:
           requests:
             memory: "1Gi"

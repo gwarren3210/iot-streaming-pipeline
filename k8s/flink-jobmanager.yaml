@@ -98,7 +98,7 @@ spec:
       containers:
       - name: jobmanager
         image: iot-flink-job:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["jobmanager"]
         ports:
         - containerPort: 6123
