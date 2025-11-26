@@ -6,7 +6,9 @@ This directory contains the Kubernetes manifests and source code to deploy the I
 
 1.  **Producer**: Python script generates IoT data -> Kafka Topic `iot_sensor_data`.
 2.  **Flink**: SQL Job reads `iot_sensor_data` -> Aggregates (Windowed Avg) -> Kafka Topic `iot_windowed_data`.
-3.  **Kafka Connect**: Reads `iot_windowed_data` -> Writes to Cassandra Table `iot_windowed_data`.
+3.  **Kafka Connect**: 
+    - Reads `iot_sensor_data` -> Writes to Cassandra Table `iot_sensor_data` (raw data)
+    - Reads `iot_windowed_data` -> Writes to Cassandra Table `iot_windowed_data` (aggregated data)
 
 ## Prerequisites
 
@@ -64,10 +66,14 @@ This directory contains the Kubernetes manifests and source code to deploy the I
     ```
 
 5.  **Create Cassandra Schema**
-    Create the keyspace and table in Cassandra:
+    Create the keyspace and tables in Cassandra:
     ```bash
     CASSANDRA_POD=$(kubectl get pods -n iot-pipeline -l app=cassandra -o jsonpath='{.items[0].metadata.name}')
+    # Create keyspace
     kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "CREATE KEYSPACE IF NOT EXISTS iot_data WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1};"
+    # Create table for raw sensor data
+    kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "CREATE TABLE IF NOT EXISTS iot_data.iot_sensor_data (device_id TEXT, timestamp TEXT, temperature DOUBLE, humidity DOUBLE, status TEXT, PRIMARY KEY (device_id, timestamp));"
+    # Create table for aggregated windowed data
     kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "CREATE TABLE IF NOT EXISTS iot_data.iot_windowed_data (device_id TEXT, window_start TIMESTAMP, window_end TIMESTAMP, avg_temp DOUBLE, PRIMARY KEY (device_id, window_start, window_end));"
     ```
 
@@ -84,17 +90,22 @@ This directory contains the Kubernetes manifests and source code to deploy the I
     ```
 
 7.  **Configure Kafka Connect**
-    Once the `kafka-connect` pod is running, configure the Cassandra Sink using port-forwarding (recommended):
+    Once the `kafka-connect` pod is running, configure both Cassandra Sink connectors using port-forwarding (recommended):
     ```bash
     # In one terminal, start port-forwarding
     kubectl port-forward svc/kafka-connect 8083:8083 -n iot-pipeline
     
-    # In another terminal, submit the connector config
+    # In another terminal, submit both connector configs
+    # 1. Connector for raw sensor data (iot_sensor_data topic)
+    curl -X POST -H "Content-Type: application/json" --data @connect/sink-config-raw.json http://localhost:8083/connectors
+    
+    # 2. Connector for aggregated windowed data (iot_windowed_data topic)
     curl -X POST -H "Content-Type: application/json" --data @connect/sink-config.json http://localhost:8083/connectors
     ```
     
-    Verify the connector is running:
+    Verify both connectors are running:
     ```bash
+    curl http://localhost:8083/connectors/cassandra-sink-raw/status
     curl http://localhost:8083/connectors/cassandra-sink/status
     ```
 
@@ -124,6 +135,10 @@ After deployment, verify the pipeline is working:
 3.  **Check Cassandra Data**
     ```bash
     CASSANDRA_POD=$(kubectl get pods -n iot-pipeline -l app=cassandra -o jsonpath='{.items[0].metadata.name}')
+    # Check raw sensor data
+    kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT COUNT(*) FROM iot_data.iot_sensor_data;"
+    kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT * FROM iot_data.iot_sensor_data LIMIT 10;"
+    # Check aggregated windowed data
     kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT COUNT(*) FROM iot_data.iot_windowed_data;"
     kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT * FROM iot_data.iot_windowed_data LIMIT 10;"
     ```
@@ -140,7 +155,9 @@ If pods show `ImagePullBackOff` or `ErrImagePull`:
 - Verify SQL syntax: `kubectl exec -n iot-pipeline <jm-pod> -- cat /opt/flink/job.sql`
 
 ### Kafka Connect Connector Issues
-- Check connector status: `curl http://localhost:8083/connectors/cassandra-sink/status`
+- Check connector status: 
+  - `curl http://localhost:8083/connectors/cassandra-sink-raw/status` (raw data)
+  - `curl http://localhost:8083/connectors/cassandra-sink/status` (aggregated data)
 - View connector logs: `kubectl logs -n iot-pipeline -l app=kafka-connect`
 - Ensure replication factors are set to `1` for single-broker setup (already configured in deployment)
 
@@ -225,15 +242,19 @@ kubectl exec -n iot-pipeline $KAFKA_POD -- /opt/kafka/bin/kafka-console-producer
 curl http://localhost:8083/connectors
 
 # Get connector status
+curl http://localhost:8083/connectors/cassandra-sink-raw/status
 curl http://localhost:8083/connectors/cassandra-sink/status
 
 # Get connector configuration
+curl http://localhost:8083/connectors/cassandra-sink-raw/config
 curl http://localhost:8083/connectors/cassandra-sink/config
 
 # Restart a connector
+curl -X POST http://localhost:8083/connectors/cassandra-sink-raw/restart
 curl -X POST http://localhost:8083/connectors/cassandra-sink/restart
 
 # Delete a connector
+curl -X DELETE http://localhost:8083/connectors/cassandra-sink-raw
 curl -X DELETE http://localhost:8083/connectors/cassandra-sink
 ```
 
@@ -251,10 +272,12 @@ kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "DESCRIBE KEYSPACES;"
 # List tables in a keyspace
 kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "DESCRIBE TABLES;"
 
-# Query data
-kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT * FROM iot_data.iot_windowed_data LIMIT 10;"
+# Query raw sensor data
+kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT * FROM iot_data.iot_sensor_data LIMIT 10;"
+kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT COUNT(*) FROM iot_data.iot_sensor_data;"
 
-# Count records
+# Query aggregated windowed data
+kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT * FROM iot_data.iot_windowed_data LIMIT 10;"
 kubectl exec -n iot-pipeline $CASSANDRA_POD -- cqlsh -e "SELECT COUNT(*) FROM iot_data.iot_windowed_data;"
 ```
 
