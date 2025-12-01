@@ -135,6 +135,7 @@ By working through this project, you'll understand how to:
 * [ ] Add **Spark Structured Streaming** for batch analytics
 * [ ] Introduce **Schema Registry** for Avro/JSON consistency
 * [ ] Add **Anomaly detection model** via Flink ML
+* [ ] Refine **Architecture Diagram** using Lucid Chart
 
 ---
 
