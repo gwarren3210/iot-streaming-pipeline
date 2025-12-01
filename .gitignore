@@ -1,5 +1,5 @@
 .env
-flink-job/flink-sql-connector-kafka.jar
+deployments/**/flink-sql-connector-kafka.jar
 cloud/flink_job_prepared.sql
 NEXT_STEPS.md
 *.log[.*]

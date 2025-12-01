@@ -59,7 +59,7 @@ def main():
     else:
         raise FileNotFoundError(
             f"Kafka connector JAR not found at {jar_path}. "
-            "Run: cd flink-job && ./download_kafka_jar.sh"
+            "Run: ./download_kafka_jar.sh (from this directory)"
         )
 
     # --- kafka source ---
