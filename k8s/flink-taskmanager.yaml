@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-taskmanager
+  namespace: iot-pipeline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink
+      component: taskmanager
+  template:
+    metadata:
+      labels:
+        app: flink
+        component: taskmanager
+    spec:
+      containers:
+      - name: taskmanager
+        image: iot-flink-job:latest
+        imagePullPolicy: IfNotPresent
+        args: ["taskmanager"]
+        ports:
+        - containerPort: 6122
+          name: rpc
+        - containerPort: 9249
+          name: metrics
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9249
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        env:
+        - name: FLINK_PROPERTIES
+          value: "jobmanager.rpc.address: flink-jobmanager"
+        volumeMounts:
+        - name: flink-config
+          mountPath: /opt/flink/conf/flink-conf.yaml
+          subPath: flink-conf.yaml
+        - name: flink-config
+          mountPath: /opt/flink/conf/log4j-console.properties
+          subPath: log4j-console.properties
+      volumes:
+      - name: flink-config
+        configMap:
+          name: flink-config

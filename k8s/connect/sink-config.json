@@ -1,0 +1,14 @@
+{
+    "name": "cassandra-sink",
+    "config": {
+        "connector.class": "com.datastax.oss.kafka.sink.CassandraSinkConnector",
+        "tasks.max": "1",
+        "topics": "iot_windowed_data",
+        "contactPoints": "cassandra",
+        "loadBalancing.localDc": "datacenter1",
+        "keyspace": "iot_data",
+        "auth.provider": "None",
+        "topic.iot_windowed_data.iot_data.iot_windowed_data.mapping": "device_id=value.device_id, window_start=value.window_start, window_end=value.window_end, avg_temp=value.avg_temp",
+        "topic.iot_windowed_data.iot_data.iot_windowed_data.consistencyLevel": "LOCAL_QUORUM"
+    }
+}
