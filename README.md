@@ -1,7 +1,7 @@
 # IoT Streaming Data Pipeline (Kafka + Flink + Cassandra)
 
 This project is a **real-time IoT data pipeline** that ingests, processes, and stores simulated sensor readings using modern streaming technologies.  
-It's designed as a hands-on learning project to master **Apache Kafka**, **Apache Flink**, and **Apache Cassandra** — with room to expand into **Spark**, **Grafana**, or **Kafka Connect** later.
+It's designed as a hands-on learning project to learn **Apache Kafka**, **Apache Flink**, and **Apache Cassandra**.
 
 ---
 
@@ -65,7 +65,7 @@ This makes the repository a more versatile base for learning and building stream
 * Build a Flink job to process streaming data with windowing & state
 * Persist processed data in Cassandra for long-term analytics
 * Design a scalable, event-driven architecture with clear data flow
-* Provide a base for future extensions (e.g. Spark ML, Kafka Connect)
+* Provide a base for future extensions (e.g. Spark ML)
 
 ---
 
@@ -147,19 +147,12 @@ By working through this project, you'll understand how to:
 
 ---
 
-## Documentation
+## Architecture Diagram
 
-* **[Migration Summary](docs/MIGRATION_SUMMARY.md)** - Project restructuring details
-* **[Learnings](docs/learnings/)** - Configuration notes and migration walkthroughs
+![Architecture Diagram](docs/architecture.png)
 
 ---
 
 ## License
 
 Apache 2.0 License © 2025 Gavriel Warren
-
----
-
-## Architecture Diagram
-
-![Architecture Diagram](docs/architecture.png)
