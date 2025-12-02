@@ -44,6 +44,19 @@ IoT Devices → Kafka → Flink → Cassandra → (optional) Grafana Dashboard
 }
 ```
 
+### Technology Choices
+
+**Why Cassandra over InfluxDB?**
+
+While time-series databases like InfluxDB are optimized for telemetry and IoT use cases, this repository is designed as a **general-purpose streaming data pipeline foundation**. Cassandra was chosen because:
+
+* **Broader applicability**: Works well for streaming data beyond just IoT/telemetry (e.g., financial transactions, user events, log streams)
+* **Flexible data model**: Supports various data patterns, not just time-series
+* **Streaming ecosystem integration**: Better integration with Kafka and Flink for general event streaming
+* **Extensibility**: Easier to adapt for different streaming use cases beyond sensor data
+
+This makes the repository a more versatile base for learning and building streaming architectures across multiple domains.
+
 ---
 
 ## Project Goals
@@ -74,32 +87,29 @@ IoT Devices → Kafka → Flink → Cassandra → (optional) Grafana Dashboard
 
 This project supports three deployment approaches, each tailored to different use cases:
 
-### 1. Docker Compose (Local Development)
+### 1. [Docker Compose](deployments/docker-compose/README.md) (Local Development)
 **Best for:** Learning, local development, and testing
 
 - Quick setup with `docker compose up`
 - Self-contained local environment
 - Perfect for learning the stack
 
-**[Get Started →](deployments/docker-compose/README.md)**
 
-### 2. Cloud Deployment (Managed Services)
+### 2. [Cloud Deployment](deployments/cloud/README.md) (Managed Services)
 **Best for:** Production cloud deployments with minimal infrastructure management
 
 - Confluent Cloud (managed Kafka + Flink)
 - DataStax Astra DB (serverless Cassandra)
 - Fully managed services
 
-**[Get Started →](deployments/cloud/README.md)**
 
-### 3. Kubernetes (Self-Hosted)
+### 3. [Kubernetes](deployments/kubernetes/README.md) (Self-Hosted)
 **Best for:** Production deployments with full control
 
 - Complete Kubernetes manifests
 - Prometheus + Grafana monitoring
 - Self-hosted OSS components
 
-**[Get Started →](deployments/kubernetes/README.md)**
 
 Each deployment method is self-contained with its own documentation and setup instructions.
 
