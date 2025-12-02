@@ -1,0 +1,30 @@
+---
+config:
+  layout: fixed
+---
+flowchart LR
+    PROD["IoT Producers<br>Python Scripts"] -- JSON Messages --> KAFKA@{ label: "<img src=\"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqOKEVxLEPXLVAhlOcrfBnIOTzoCU23BwUMA&amp;s\"><br>Kafka<br>iot_sensor_data<br>iot_windowed_data" }
+    KAFKA <-- Consume & Produce --> FLINK@{ label: "<img src=\"https://flink.apache.org/img/logo/png/200/flink_squirrel_200_color.png\">Flink<br>1-min Window Aggregation" }
+    KAFKA -- Kafka Connect --> CASS@{ label: "<img src=\"https://upload.wikimedia.org/wikipedia/commons/1/1e/Apache-cassandra-icon.png\"> Cassandra<br>Kafka Connect Sinks" }
+    CASS -- Query Data --> GRAF@{ label: "<img src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Grafana_icon.svg/1969px-Grafana_icon.svg.png\">Grafana<br>Dashboard" }
+    KAFKA -. Metrics .-> PROM@{ label: "<img src=\"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnPyUcx9Rqcv7aKhASbNcFHRARX3wsJU0xtg&amp;s\">Prometheus<br>Metrics Collection" }
+    FLINK -. Metrics .-> PROM
+    PROM -- Data Source --> GRAF
+
+    KAFKA@{ shape: rect}
+    FLINK@{ shape: rect}
+    CASS@{ shape: rect}
+    GRAF@{ shape: rect}
+    PROM@{ shape: rect}
+     PROD:::producer
+     KAFKA:::kafka
+     FLINK:::flink
+     CASS:::cassandra
+     GRAF:::grafana
+     PROM:::prometheus
+    classDef producer fill:#e1f5ff,stroke:#333,stroke-width:2px
+    classDef kafka fill:#ffe1f5,stroke:#333,stroke-width:2px
+    classDef flink fill:#fff5e1,stroke:#333,stroke-width:2px
+    classDef cassandra fill:#e1ffe1,stroke:#333,stroke-width:2px
+    classDef grafana fill:#ffe1e1,stroke:#333,stroke-width:2px
+    classDef prometheus fill:#e1e1ff,stroke:#333,stroke-width:2px
