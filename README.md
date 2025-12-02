@@ -44,7 +44,7 @@ IoT Devices → Kafka → Flink → Cassandra → (optional) Grafana Dashboard
 }
 ```
 
-### Technology Choices
+### Design Choices
 
 **Why Cassandra over InfluxDB?**
 
